@@ -6,6 +6,7 @@ import (
 	"github/Panyakorn4/kwanjai-shop-tutorial/modules/users"
 	"github/Panyakorn4/kwanjai-shop-tutorial/modules/users/usersUsecases"
 	"github/Panyakorn4/kwanjai-shop-tutorial/pkg/kwanjaiauth"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -19,6 +20,7 @@ const (
 	signOutErr            userHandlerErrCode = "users-004"
 	singUpAdminErr        userHandlerErrCode = "users-005"
 	generateTokenAdminErr userHandlerErrCode = "users-006"
+	getUserProfile        userHandlerErrCode = "users-007"
 )
 
 type IUsersHandler interface {
@@ -28,6 +30,7 @@ type IUsersHandler interface {
 	SignOut(c *fiber.Ctx) error
 	SignUpAdmin(c *fiber.Ctx) error
 	GenerateAdminToken(c *fiber.Ctx) error
+	GetUserProfile(c *fiber.Ctx) error
 }
 
 type usersHandler struct {
@@ -218,4 +221,29 @@ func (h *usersHandler) GenerateAdminToken(c *fiber.Ctx) error {
 			Token: adminToken.SignToken(),
 		},
 	).Res()
+}
+
+func (h *usersHandler) GetUserProfile(c *fiber.Ctx) error {
+	// Set params
+	userId := strings.Trim(c.Params("user_id"), " ")
+
+	// Get profile
+	result, err := h.usersUsecase.GetUserProfile(userId)
+	if err != nil {
+		switch err.Error() {
+		case "get user failed: sql: no rows in result set":
+			return entities.NewResponse(c).Error(
+				fiber.ErrBadRequest.Code,
+				string(getUserProfile),
+				err.Error(),
+			).Res()
+		default:
+			return entities.NewResponse(c).Error(
+				fiber.ErrInternalServerError.Code,
+				string(getUserProfile),
+				err.Error(),
+			).Res()
+		}
+	}
+	return entities.NewResponse(c).Success(fiber.StatusOK, result).Res()
 }
